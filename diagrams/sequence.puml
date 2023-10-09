@@ -1,0 +1,20 @@
+@startuml
+
+box Sensor
+participant Camera
+end box
+box Device
+participant Computer
+end box
+box Cloud
+participant Storage
+end box
+
+Camera --> Computer : video/image stream
+Computer --> Storage : information about license plate \n+ timestamp
+Storage <-- Webserver : get information about license plate \n+ timestamp
+actor User
+Webserver <-- User : get information
+@enduml
+
+' encrypt/encode licence plate to a unique ID for security
