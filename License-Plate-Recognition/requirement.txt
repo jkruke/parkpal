@@ -9,3 +9,5 @@ pyyaml
 requests
 pandas
 seaborn
+
+paho-mqtt
