@@ -1,3 +1,4 @@
+import time
 from argparse import ArgumentParser
 from typing import List
 
@@ -17,13 +18,14 @@ class LicensePlateNotifier:
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
-    def __init__(self, video_src: int | str, notifiers: List[LicensePlateNotifier]):
+    def __init__(self, video_src: int | str, notifiers: List[LicensePlateNotifier], frames_per_second=10):
         """
         :param video_src specify the source of video input.
         Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), or video file (vid.mp4)
         """
         self.video_src = video_src
         self.notifiers = notifiers
+        self.frames_per_second = frames_per_second
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
@@ -46,7 +48,8 @@ class LicensePlateDetector:
             vid.release()
 
     def process_video(self, vid):
-        while True:
+        while vid.isOpened():
+            time.sleep(1 / self.frames_per_second)
             ret, frame = vid.read()
 
             plates = self.yolo_LP_detect(frame, size=640)
