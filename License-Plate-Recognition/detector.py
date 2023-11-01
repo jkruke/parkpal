@@ -48,9 +48,13 @@ class LicensePlateDetector:
             vid.release()
 
     def process_video(self, vid):
-        while vid.isOpened():
-            time.sleep(1 / self.frames_per_second)
-            ret, frame = vid.read()
+        while True:
+            while True:
+                ret, frame = vid.read()
+                if frame is not None:
+                    break
+                time.sleep(0.1)
+                print("Retry reading video")
 
             plates = self.yolo_LP_detect(frame, size=640)
             list_plates = plates.pandas().xyxy[0].values.tolist()
@@ -73,6 +77,7 @@ class LicensePlateDetector:
                         break
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        print(f"Video source '{self.video_src}' is closed. Stopping video processing")
 
 
 class MqttNotifier(LicensePlateNotifier):
@@ -83,15 +88,37 @@ class MqttNotifier(LicensePlateNotifier):
 
     @staticmethod
     def create_client(broker, client_id, port):
+        """
+        Code in this method is inspired by https://www.emqx.com/en/blog/how-to-use-mqtt-in-python
+        """
         def on_connect(this_client, userdata, flags, rc):
             if rc == 0:
                 print("Connected to MQTT Broker!")
             else:
-                print("Failed to connect, return code %d\n", rc)
+                print(f"Failed to connect, return code {rc}")
+
+        def on_disconnect(this_client, userdata, rc):
+            print(f"Disconnected with result code: {rc}")
+            reconnect_count, reconnect_delay = 0, 0.5
+            while reconnect_count < 5:
+                print(f"Reconnecting in {reconnect_delay} seconds...")
+                time.sleep(reconnect_delay)
+
+                try:
+                    this_client.reconnect()
+                    print("Reconnected successfully!")
+                    return
+                except Exception as err:
+                    print(f"{err}. Reconnect failed. Retrying...")
+
+                reconnect_delay *= 1.5
+                reconnect_delay = min(reconnect_delay, 5)
+                reconnect_count += 1
+            print(f"Reconnect failed after {reconnect_count} attempts. Exiting...")
 
         client = mqtt_client.Client(client_id)
         client.on_connect = on_connect
-        # TODO add auto reconnect mechanism, see https://www.emqx.com/en/blog/how-to-use-mqtt-in-python
+        client.on_disconnect = on_disconnect
         client.connect(broker, port)
         return client
 
