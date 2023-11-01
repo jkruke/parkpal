@@ -15,6 +15,37 @@ class LicensePlateNotifier:
         raise NotImplementedError
 
 
+class LicensePlateHandler:
+    MIN_REQ_DUPLICATES = 10
+
+    def __init__(self, notifiers: List[LicensePlateNotifier]):
+        self.notifiers = notifiers
+        self.known_lp = {}
+
+    def add_all(self, license_plates: list):
+        for lp in license_plates:
+            dup_count = 0 if lp not in self.known_lp else self.known_lp[lp]['dup_count'] + 1
+            self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': False}
+
+        self.handle_known_lps()
+        print(self.known_lp)
+
+    def handle_known_lps(self):
+        known_lp_updated = self.known_lp
+        for lp, info in self.known_lp.items():
+            if info['notified'] is False and info['dup_count'] > self.MIN_REQ_DUPLICATES:
+                # notify new record:
+                for notifier in self.notifiers:
+                    notifier.notify(lp)
+                info['notified'] = True
+
+            # cleanup old records:
+            if info['lastseen'] >= time.time() - 60:
+                known_lp_updated[lp] = info
+
+        self.known_lp = known_lp_updated
+
+
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
@@ -29,6 +60,7 @@ class LicensePlateDetector:
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
+        self.lp_handler = LicensePlateHandler(notifiers)
 
     def load_model(self):
         self.yolo_LP_detect = torch.hub.load('yolov5', 'custom', path='model/LP_detector_nano_61.pt', force_reload=True,
@@ -49,35 +81,43 @@ class LicensePlateDetector:
 
     def process_video(self, vid):
         while True:
-            while True:
-                ret, frame = vid.read()
-                if frame is not None:
-                    break
-                time.sleep(0.1)
-                print("Retry reading video")
+            time.sleep(0.1)
+            frame = self.read_video_frame(vid)
+            detected_license_plates = self.extract_license_plates(frame)
+            self.lp_handler.add_all(detected_license_plates)
 
-            plates = self.yolo_LP_detect(frame, size=640)
-            list_plates = plates.pandas().xyxy[0].values.tolist()
-            for plate in list_plates:
-                flag = 0
-                x = int(plate[0])  # xmin
-                y = int(plate[1])  # ymin
-                w = int(plate[2] - plate[0])  # xmax - xmin
-                h = int(plate[3] - plate[1])  # ymax - ymin
-                crop_img = frame[y:y + h, x:x + w]
-                for cc in range(0, 2):
-                    for ct in range(0, 2):
-                        lp = helper.read_plate(self.yolo_license_plate, utils_rotate.deskew(crop_img, cc, ct))
-                        if lp != "unknown":
-                            for n in self.notifiers:
-                                n.notify(lp)
-                            flag = 1
-                            break
-                    if flag == 1:
+    def extract_license_plates(self, frame):
+        plates = self.yolo_LP_detect(frame, size=640)
+        list_plates = plates.pandas().xyxy[0].values.tolist()
+        result = []
+        for plate in list_plates:
+            flag = 0
+            x = int(plate[0])  # xmin
+            y = int(plate[1])  # ymin
+            w = int(plate[2] - plate[0])  # xmax - xmin
+            h = int(plate[3] - plate[1])  # ymax - ymin
+            crop_img = frame[y:y + h, x:x + w]
+            for cc in range(0, 2):
+                for ct in range(0, 2):
+                    lp = helper.read_plate(self.yolo_license_plate, utils_rotate.deskew(crop_img, cc, ct))
+                    if lp != "unknown":
+                        result.append(lp)
+                        flag = 1
                         break
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+                if flag == 1:
+                    break
+
+        return result
+
+    @staticmethod
+    def read_video_frame(vid):
+        while True:
+            ret, frame = vid.read()
+            if frame is not None:
                 break
-        print(f"Video source '{self.video_src}' is closed. Stopping video processing")
+            time.sleep(0.1)
+            print("Retry reading video")
+        return frame
 
 
 class MqttNotifier(LicensePlateNotifier):
