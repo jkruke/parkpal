@@ -1,0 +1,8 @@
+:root {
+    --white: #fefefe;
+    --blue: #164195;
+    --dark-text: #2c3e50;
+}
+body {
+    margin: 0 !important;
+}
