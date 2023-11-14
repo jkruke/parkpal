@@ -1,5 +1,8 @@
+import dataclasses
+import json
 import time
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from typing import List
 
 import cv2
@@ -10,13 +13,23 @@ import function.helper as helper
 import function.utils_rotate as utils_rotate
 
 
+@dataclass
+class LicensePlateDetection:
+    parking_lot_id: int
+    license_plate: str
+    entrance: bool
+
+
 class LicensePlateNotifier:
-    def notify(self, licence_plate):
+    def notify(self, detection: LicensePlateDetection):
         raise NotImplementedError
 
 
 class LicensePlateHandler:
-    def __init__(self, notifiers: List[LicensePlateNotifier], min_req_duplicates=5):
+    def __init__(self, record_entrance: bool, parking_lot_id: int, notifiers: List[LicensePlateNotifier],
+                 min_req_duplicates=5):
+        self.parking_lot_id = parking_lot_id
+        self.record_entrance = record_entrance
         self.notifiers = notifiers
         self.min_req_duplicates = min_req_duplicates
         self.known_lp = {}
@@ -43,7 +56,9 @@ class LicensePlateHandler:
             if info['notified'] is False and info['dup_count'] >= self.min_req_duplicates:
                 # notify new record:
                 for notifier in self.notifiers:
-                    notifier.notify(lp)
+                    detection = LicensePlateDetection(parking_lot_id=self.parking_lot_id, license_plate=lp,
+                                                      entrance=self.record_entrance)
+                    notifier.notify(detection)
                 info['notified'] = True
 
             # cleanup old records:
@@ -58,7 +73,8 @@ class LicensePlateHandler:
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
-    def __init__(self, video_src: int | str, notifiers: List[LicensePlateNotifier], frames_per_second=10):
+    def __init__(self, video_src: int | str, record_entrance: bool, parking_lot_id: int,
+                 notifiers: List[LicensePlateNotifier], frames_per_second=10):
         """
         :param video_src specify the source of video input.
         Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), or video file (vid.mp4)
@@ -70,7 +86,7 @@ class LicensePlateDetector:
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
-        self.lp_handler = LicensePlateHandler(notifiers)
+        self.lp_handler = LicensePlateHandler(record_entrance, parking_lot_id, notifiers)
 
     def load_model(self):
         self.yolo_LP_detect = torch.hub.load('yolov5', 'custom', path='model/LP_detector_nano_61.pt', force_reload=True,
@@ -187,18 +203,19 @@ class MqttNotifier(LicensePlateNotifier):
         client.connect(broker, port)
         return client
 
-    def notify(self, license_plate: str):
-        result = self.client.publish(topic=self.TOPIC, payload=license_plate)
+    def notify(self, detection: LicensePlateDetection):
+        payload = json.dumps(dataclasses.asdict(detection))
+        result = self.client.publish(self.TOPIC, payload)
         status = result[0]
         if status == 0:
-            print(f"Send `{license_plate}` to topic `{self.TOPIC}`")
+            print(f"Send `{payload}` to topic `{self.TOPIC}`")
         else:
             print(f"Failed to send message to topic {self.TOPIC}")
 
 
 class ConsoleNotifier(LicensePlateNotifier):
-    def notify(self, licence_plate):
-        print(f"Detected {licence_plate}")
+    def notify(self, detection):
+        print(f"Detected {detection.license_plate}")
 
 
 def parse_arguments():
@@ -210,9 +227,13 @@ def parse_arguments():
     arg_parser.add_argument('-mb', '--mqtt-broker', help="Hostname of MQTT broker",
                             default="broker.hivemq.com")
     arg_parser.add_argument('-mp', '--mqtt-port', help="Port of MQTT broker",
-                            default=1883)
+                            default=1883, type=int)
     arg_parser.add_argument('-mi', '--mqtt-client-id', help="MQTT client-ID",
                             default="iot-lp-detector")
+    arg_parser.add_argument('-e', '--record-entrance', help="Record entrance (true) or exit (false)",
+                            default=True, type=bool)
+    arg_parser.add_argument('-p', '--parking-lot-id', help="ID of the corresponding parking lot",
+                            default=0, type=int)
     return arg_parser.parse_args()
 
 
@@ -220,5 +241,8 @@ if __name__ == '__main__':
     args = parse_arguments()
     mqtt_notifier = MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id)
     console_notifier = ConsoleNotifier()
-    detector = LicensePlateDetector(video_src=args.video_src, notifiers=[console_notifier, mqtt_notifier])
+    detector = LicensePlateDetector(video_src=args.video_src,
+                                    record_entrance=args.record_entrance,
+                                    parking_lot_id=args.parking_lot_id,
+                                    notifiers=[console_notifier, mqtt_notifier])
     detector.run()

@@ -1,11 +1,11 @@
-from detector import LicensePlateHandler, LicensePlateNotifier
+from detector import LicensePlateHandler, LicensePlateNotifier, LicensePlateDetection
 
 
 class TestNotifier(LicensePlateNotifier):
     notified = []
 
-    def notify(self, licence_plate):
-        self.notified.append(licence_plate)
+    def notify(self, detection: LicensePlateDetection):
+        self.notified.append(detection.license_plate)
 
 
 def test_license_plate_handler():
