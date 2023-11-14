@@ -16,31 +16,36 @@ class LicensePlateNotifier:
 
 
 class LicensePlateHandler:
-    MIN_REQ_DUPLICATES = 10
-
-    def __init__(self, notifiers: List[LicensePlateNotifier]):
+    def __init__(self, notifiers: List[LicensePlateNotifier], min_req_duplicates=10):
         self.notifiers = notifiers
+        self.min_req_duplicates = min_req_duplicates
         self.known_lp = {}
 
     def add_all(self, license_plates: list):
         for lp in license_plates:
-            dup_count = 0 if lp not in self.known_lp else self.known_lp[lp]['dup_count'] + 1
-            self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': False}
+            if lp not in self.known_lp:
+                dup_count = 0
+                notified = False
+            else:
+                dup_count = self.known_lp[lp]['dup_count'] + 1
+                notified = self.known_lp[lp]['notified']
+            self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': notified}
 
         self.handle_known_lps()
-        print(self.known_lp)
 
     def handle_known_lps(self):
         known_lp_updated = self.known_lp
         for lp, info in self.known_lp.items():
-            if info['notified'] is False and info['dup_count'] > self.MIN_REQ_DUPLICATES:
+            if info['notified'] is False and info['dup_count'] >= self.min_req_duplicates:
                 # notify new record:
                 for notifier in self.notifiers:
                     notifier.notify(lp)
                 info['notified'] = True
 
             # cleanup old records:
-            if info['lastseen'] >= time.time() - 60:
+            if info['lastseen'] < time.time() - 60:
+                known_lp_updated.pop(lp)
+            else:
                 known_lp_updated[lp] = info
 
         self.known_lp = known_lp_updated
