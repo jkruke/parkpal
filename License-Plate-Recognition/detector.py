@@ -16,13 +16,17 @@ class LicensePlateNotifier:
 
 
 class LicensePlateHandler:
-    def __init__(self, notifiers: List[LicensePlateNotifier], min_req_duplicates=10):
+    def __init__(self, notifiers: List[LicensePlateNotifier], min_req_duplicates=5):
         self.notifiers = notifiers
         self.min_req_duplicates = min_req_duplicates
         self.known_lp = {}
 
     def add_all(self, license_plates: list):
         for lp in license_plates:
+            # ignore license plate if it doesn't meet the formal requirements:
+            if len(lp) not in [9, 10]:
+                continue
+
             if lp not in self.known_lp:
                 dup_count = 0
                 notified = False
@@ -34,7 +38,7 @@ class LicensePlateHandler:
         self.handle_known_lps()
 
     def handle_known_lps(self):
-        known_lp_updated = self.known_lp
+        known_lp_updated = self.known_lp.copy()
         for lp, info in self.known_lp.items():
             if info['notified'] is False and info['dup_count'] >= self.min_req_duplicates:
                 # notify new record:
@@ -62,6 +66,7 @@ class LicensePlateDetector:
         self.video_src = video_src
         self.notifiers = notifiers
         self.frames_per_second = frames_per_second
+        self.vid = None
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
@@ -75,26 +80,33 @@ class LicensePlateDetector:
         self.yolo_license_plate.conf = 0.60
 
     def run(self):
-        vid = cv2.VideoCapture(self.video_src)
+        self.init_video()
         print(f"Starting detection from video source '{self.video_src}'")
         try:
-            self.process_video(vid)
+            self.process_video()
         except KeyboardInterrupt:
             print("Program terminated by KeyboardInterrupt")
         finally:
-            vid.release()
+            self.vid.release()
 
-    def process_video(self, vid):
+    def init_video(self):
+        self.vid = cv2.VideoCapture(self.video_src)
+
+    def process_video(self):
         while True:
             time.sleep(0.1)
-            frame = self.read_video_frame(vid)
+            frame = self.read_video_frame()
             detected_license_plates = self.extract_license_plates(frame)
             self.lp_handler.add_all(detected_license_plates)
 
     def extract_license_plates(self, frame):
-        plates = self.yolo_LP_detect(frame, size=640)
-        list_plates = plates.pandas().xyxy[0].values.tolist()
         result = []
+        try:
+            plates = self.yolo_LP_detect(frame, size=640)
+            list_plates = plates.pandas().xyxy[0].values.tolist()
+        except Exception as e:
+            print("Exception during detection", e)
+            return result
         for plate in list_plates:
             flag = 0
             x = int(plate[0])  # xmin
@@ -114,15 +126,23 @@ class LicensePlateDetector:
 
         return result
 
-    @staticmethod
-    def read_video_frame(vid):
+    def read_video_frame(self):
+        retries = 0
         while True:
-            ret, frame = vid.read()
-            if frame is not None:
-                break
-            time.sleep(0.1)
-            print("Retry reading video")
-        return frame
+            try:
+                ret, frame = self.vid.read()
+                if frame is not None:
+                    return frame
+            except Exception as e:
+                print("Exception while reading video:", e)
+
+            time.sleep(0.01)
+            retries += 1
+            if retries > 10:
+                print("Reinitializing video capture due to too many failed read operations.")
+                self.vid.release()
+                self.init_video()
+                retries = 0
 
 
 class MqttNotifier(LicensePlateNotifier):
