@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1>Parking Lot ID: {{ id}}</h1>
+    <h1>Parking Lot ID: {{ id}} ({{ name }})</h1>
     <table>
       <tr>
         <td>Total count of motorbikes at parking lot</td>
@@ -28,7 +28,8 @@ export default {
   data() {
     return {
       totalCount: 0,
-      currentLoad: 0
+      currentLoad: 0,
+      name: ""
     }
   },
   mounted() {
@@ -43,6 +44,19 @@ export default {
             const data = response.data
             this.totalCount = data.length
             this.currentLoad = data[0].userId
+            this.name = "Parking Lot Name"
+          })
+    },
+    updateData() {
+      // This is an example how to request a REST API and use the response to change values of variables which will be
+      // reactively changed in the DOM:
+      const host = "http://192.168.1.196:9091"
+      axios.get(host + "/parkingLots/" + this.id)
+          .then(response => {
+            const data = response.data
+            this.totalCount = data.bikeCount
+            this.currentLoad = data.congestionRate
+            this.name = data.name
           })
     }
   }
