@@ -46,7 +46,7 @@ func main() {
 
 	// handlers for API
 	getR := sm.Methods(http.MethodGet).Subrouter()
-	getR.HandleFunc("/parkingLots/{id:[0-9]+}", apiHandler.GetParkingLot)
+	getR.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.GetParkingLot)
 
 	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"*"}))
 
