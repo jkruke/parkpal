@@ -1,5 +1,8 @@
+import dataclasses
+import json
 import time
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from typing import List
 
 import cv2
@@ -10,37 +13,58 @@ import function.helper as helper
 import function.utils_rotate as utils_rotate
 
 
+@dataclass
+class LicensePlateDetection:
+    parking_lot_id: int
+    license_plate: str
+    entrance: bool
+
+
 class LicensePlateNotifier:
-    def notify(self, licence_plate):
+    def notify(self, detection: LicensePlateDetection):
         raise NotImplementedError
 
 
 class LicensePlateHandler:
-    MIN_REQ_DUPLICATES = 10
-
-    def __init__(self, notifiers: List[LicensePlateNotifier]):
+    def __init__(self, record_entrance: bool, parking_lot_id: int, notifiers: List[LicensePlateNotifier],
+                 min_req_duplicates=5):
+        self.parking_lot_id = parking_lot_id
+        self.record_entrance = record_entrance
         self.notifiers = notifiers
+        self.min_req_duplicates = min_req_duplicates
         self.known_lp = {}
 
     def add_all(self, license_plates: list):
         for lp in license_plates:
-            dup_count = 0 if lp not in self.known_lp else self.known_lp[lp]['dup_count'] + 1
-            self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': False}
+            # ignore license plate if it doesn't meet the formal requirements:
+            if len(lp) not in [9, 10]:
+                continue
+
+            if lp not in self.known_lp:
+                dup_count = 0
+                notified = False
+            else:
+                dup_count = self.known_lp[lp]['dup_count'] + 1
+                notified = self.known_lp[lp]['notified']
+            self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': notified}
 
         self.handle_known_lps()
-        print(self.known_lp)
 
     def handle_known_lps(self):
-        known_lp_updated = self.known_lp
+        known_lp_updated = self.known_lp.copy()
         for lp, info in self.known_lp.items():
-            if info['notified'] is False and info['dup_count'] > self.MIN_REQ_DUPLICATES:
+            if info['notified'] is False and info['dup_count'] >= self.min_req_duplicates:
                 # notify new record:
                 for notifier in self.notifiers:
-                    notifier.notify(lp)
+                    detection = LicensePlateDetection(parking_lot_id=self.parking_lot_id, license_plate=lp,
+                                                      entrance=self.record_entrance)
+                    notifier.notify(detection)
                 info['notified'] = True
 
             # cleanup old records:
-            if info['lastseen'] >= time.time() - 60:
+            if info['lastseen'] < time.time() - 60:
+                known_lp_updated.pop(lp)
+            else:
                 known_lp_updated[lp] = info
 
         self.known_lp = known_lp_updated
@@ -49,7 +73,8 @@ class LicensePlateHandler:
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
-    def __init__(self, video_src: int | str, notifiers: List[LicensePlateNotifier], frames_per_second=10):
+    def __init__(self, video_src: int | str, record_entrance: bool, parking_lot_id: int,
+                 notifiers: List[LicensePlateNotifier], frames_per_second=10):
         """
         :param video_src specify the source of video input.
         Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), or video file (vid.mp4)
@@ -57,10 +82,11 @@ class LicensePlateDetector:
         self.video_src = video_src
         self.notifiers = notifiers
         self.frames_per_second = frames_per_second
+        self.vid = None
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
-        self.lp_handler = LicensePlateHandler(notifiers)
+        self.lp_handler = LicensePlateHandler(record_entrance, parking_lot_id, notifiers)
 
     def load_model(self):
         self.yolo_LP_detect = torch.hub.load('yolov5', 'custom', path='model/LP_detector_nano_61.pt', force_reload=True,
@@ -70,26 +96,33 @@ class LicensePlateDetector:
         self.yolo_license_plate.conf = 0.60
 
     def run(self):
-        vid = cv2.VideoCapture(self.video_src)
+        self.init_video()
         print(f"Starting detection from video source '{self.video_src}'")
         try:
-            self.process_video(vid)
+            self.process_video()
         except KeyboardInterrupt:
             print("Program terminated by KeyboardInterrupt")
         finally:
-            vid.release()
+            self.vid.release()
 
-    def process_video(self, vid):
+    def init_video(self):
+        self.vid = cv2.VideoCapture(self.video_src)
+
+    def process_video(self):
         while True:
             time.sleep(0.1)
-            frame = self.read_video_frame(vid)
+            frame = self.read_video_frame()
             detected_license_plates = self.extract_license_plates(frame)
             self.lp_handler.add_all(detected_license_plates)
 
     def extract_license_plates(self, frame):
-        plates = self.yolo_LP_detect(frame, size=640)
-        list_plates = plates.pandas().xyxy[0].values.tolist()
         result = []
+        try:
+            plates = self.yolo_LP_detect(frame, size=640)
+            list_plates = plates.pandas().xyxy[0].values.tolist()
+        except Exception as e:
+            print("Exception during detection", e)
+            return result
         for plate in list_plates:
             flag = 0
             x = int(plate[0])  # xmin
@@ -109,15 +142,23 @@ class LicensePlateDetector:
 
         return result
 
-    @staticmethod
-    def read_video_frame(vid):
+    def read_video_frame(self):
+        retries = 0
         while True:
-            ret, frame = vid.read()
-            if frame is not None:
-                break
-            time.sleep(0.1)
-            print("Retry reading video")
-        return frame
+            try:
+                ret, frame = self.vid.read()
+                if frame is not None:
+                    return frame
+            except Exception as e:
+                print("Exception while reading video:", e)
+
+            time.sleep(0.01)
+            retries += 1
+            if retries > 10:
+                print("Reinitializing video capture due to too many failed read operations.")
+                self.vid.release()
+                self.init_video()
+                retries = 0
 
 
 class MqttNotifier(LicensePlateNotifier):
@@ -162,18 +203,19 @@ class MqttNotifier(LicensePlateNotifier):
         client.connect(broker, port)
         return client
 
-    def notify(self, license_plate: str):
-        result = self.client.publish(topic=self.TOPIC, payload=license_plate)
+    def notify(self, detection: LicensePlateDetection):
+        payload = json.dumps(dataclasses.asdict(detection))
+        result = self.client.publish(self.TOPIC, payload)
         status = result[0]
         if status == 0:
-            print(f"Send `{license_plate}` to topic `{self.TOPIC}`")
+            print(f"Send `{payload}` to topic `{self.TOPIC}`")
         else:
             print(f"Failed to send message to topic {self.TOPIC}")
 
 
 class ConsoleNotifier(LicensePlateNotifier):
-    def notify(self, licence_plate):
-        print(f"Detected {licence_plate}")
+    def notify(self, detection):
+        print(f"Detected {detection.license_plate}")
 
 
 def parse_arguments():
@@ -185,9 +227,13 @@ def parse_arguments():
     arg_parser.add_argument('-mb', '--mqtt-broker', help="Hostname of MQTT broker",
                             default="broker.hivemq.com")
     arg_parser.add_argument('-mp', '--mqtt-port', help="Port of MQTT broker",
-                            default=1883)
+                            default=1883, type=int)
     arg_parser.add_argument('-mi', '--mqtt-client-id', help="MQTT client-ID",
                             default="iot-lp-detector")
+    arg_parser.add_argument('-e', '--record-entrance', help="Record entrance (true) or exit (false)",
+                            default=True, type=bool)
+    arg_parser.add_argument('-p', '--parking-lot-id', help="ID of the corresponding parking lot",
+                            default=0, type=int)
     return arg_parser.parse_args()
 
 
@@ -195,5 +241,8 @@ if __name__ == '__main__':
     args = parse_arguments()
     mqtt_notifier = MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id)
     console_notifier = ConsoleNotifier()
-    detector = LicensePlateDetector(video_src=args.video_src, notifiers=[console_notifier, mqtt_notifier])
+    detector = LicensePlateDetector(video_src=args.video_src,
+                                    record_entrance=args.record_entrance,
+                                    parking_lot_id=args.parking_lot_id,
+                                    notifiers=[console_notifier, mqtt_notifier])
     detector.run()

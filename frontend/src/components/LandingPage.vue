@@ -16,7 +16,7 @@ export default {
   components: {ParkingLotPanel},
   data() {
     return {
-      parkingLots: [0] // IDs of all parking lots for which we want to display a panel
+      parkingLots: [1, 2] // IDs of all parking lots for which we want to display a panel
     }
   }
 }
