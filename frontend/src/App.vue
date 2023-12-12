@@ -1,15 +1,17 @@
 <template>
-  <LandingPage/>
+  <div>
+    <Map/>
+  </div>
 </template>
 
 <script>
-import LandingPage from "@/components/LandingPage.vue";
+import Map from "@/components/Map.vue";
 
 export default {
   name: 'App',
   components: {
-    LandingPage
-  }
+    Map
+}
 }
 </script>
 
