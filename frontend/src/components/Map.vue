@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { Map, Marker } from 'maplibre-gl';
+import { Map, Marker, Popup } from 'maplibre-gl';
 
 export default {
   name: "Map",
@@ -27,10 +27,26 @@ export default {
       center: [this.initialState.lng, this.initialState.lat],
       zoom: this.initialState.zoom
     });
-    for (let parkingLot of this.parkingLots) {
-      new Marker({color: "red"})
-          .setLngLat(parkingLot.latlong)
-          .addTo(this.map)
+  },
+  watch: {
+    parkingLots() {
+      for (let parkingLot of this.parkingLots) {
+        console.log("ParkingLot", parkingLot.name)
+        const latlong = [parseFloat(parkingLot.latitude), parseFloat(parkingLot.longitude)];
+        const occupied = Math.round(100 * parkingLot.bikeCount / parkingLot.totalSpace)
+        const trend = parkingLot.congestionRate > 0 ? "+" + parkingLot.congestionRate : parkingLot.congestionRate
+        new Marker({color: this.getColor(occupied / 100)})
+            .setLngLat(latlong)
+            .setPopup(new Popup({offset: 25})
+                .setHTML(`<strong>${parkingLot.name}</strong><p>Occupied: ${occupied}%</p><p>Trend: ${trend}</p>`))
+            .addTo(this.map)
+      }
+    }
+  },
+  methods: {
+    getColor(value) {
+      const hue = ((1 - value) * 120).toString(10);
+      return ["hsl(", hue, ",100%,50%)"].join("");
     }
   },
   unmounted() {

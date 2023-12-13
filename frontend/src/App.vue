@@ -116,8 +116,8 @@ const dummyData = [
     "congestionRate": 80,
     "totalSpace": 1000,
     "latlong": [
-      105.84414,
-      21.00405
+      "105.84414",
+      "21.00405"
     ]
   },
   {
@@ -127,8 +127,8 @@ const dummyData = [
     "congestionRate": 60,
     "totalSpace": 500,
     "latlong": [
-      105.84414,
-      21.00605
+      "105.84414",
+      "21.00605"
     ]
   }
 ];
@@ -159,13 +159,12 @@ export default {
   },
   methods: {
     updateParkingLots() {
-      axios.get("http://172.20.10.12:9091/parking-lots")
+      axios.get("http://10.90.21.32:9091/parking-lots")
           .then(response => {
-            let data = response.data
-            data = data.map(d => d.latlong = [105.84414, 21.00405])
-            this.parkingLots = data
+            this.parkingLots = response.data
           })
           .catch(() => {
+            console.info("Using dummy data...")
             this.parkingLots = dummyData
           })
     }
