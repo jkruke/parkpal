@@ -100,13 +100,38 @@
         &copy; IOTeam
       </footer>
     </div>
-    <Map/>
+    <Map :parking-lots="parkingLots"/>
   </div>
 </template>
 
 <script>
 import Map from "@/components/Map.vue";
 import axios from "axios";
+
+const dummyData = [
+  {
+    "id": 1,
+    "name": "D8",
+    "bikeCount": 100,
+    "congestionRate": 80,
+    "totalSpace": 1000,
+    "latlong": [
+      105.84414,
+      21.00405
+    ]
+  },
+  {
+    "id": 2,
+    "name": "D9",
+    "bikeCount": 323,
+    "congestionRate": 60,
+    "totalSpace": 500,
+    "latlong": [
+      105.84414,
+      21.00605
+    ]
+  }
+];
 
 export default {
   name: 'App',
@@ -115,31 +140,33 @@ export default {
   },
   data() {
     return {
-      totalBikeCount: 0,
-      totalParkingSlots: 0
+      parkingLots: []
     }
   },
   mounted() {
-    this.requestAPI()
-    setInterval(this.requestAPI, 2000)
+    setInterval(this.updateParkingLots, 2000)
   },
   computed: {
     freeParkingSlots() {
       return this.totalParkingSlots - this.totalBikeCount
+    },
+    totalBikeCount() {
+      return this.parkingLots.reduce((a, b) => a + b.bikeCount, 0)
+    },
+    totalParkingSlots() {
+      return this.parkingLots.reduce((a, b) => a + b.totalSpace, 0)
     }
   },
   methods: {
-    requestAPI() {
+    updateParkingLots() {
       axios.get("http://172.20.10.12:9091/parking-lots")
           .then(response => {
-            const data = response.data
-            console.log(data)
-            this.totalBikeCount = data.reduce((a, b) => a + b.bikeCount, 0)
-            this.totalParkingSlots = data.reduce((a, b) => a + b.totalSpace, 0)
+            let data = response.data
+            data = data.map(d => d.latlong = [105.84414, 21.00405])
+            this.parkingLots = data
           })
           .catch(() => {
-            this.totalBikeCount = -1
-            this.totalParkingSlots = -1
+            this.parkingLots = dummyData
           })
     }
   }
