@@ -8,24 +8,30 @@ import (
 var parkingLotList = []*entity.ParkingLot{
 	{
 		ID:             1,
-		Name:           "Hai Ba Trung",
-		BikeCount:      100,
+		Name:           "D9",
+		BikeCount:      1000,
 		CongestionRate: 80,
 		TotalSpace:     1000,
+		Latitude:       105.84414,
+		Longitude:      21.00405,
 	},
 	{
 		ID:             2,
-		Name:           "Dong Da",
+		Name:           "C7",
 		BikeCount:      200,
 		CongestionRate: 20,
 		TotalSpace:     2000,
+		Latitude:       105.844203,
+		Longitude:      21.005155,
 	},
 	{
 		ID:             3,
-		Name:           "D9",
+		Name:           "D8",
 		BikeCount:      323,
 		CongestionRate: 60,
 		TotalSpace:     500,
+		Latitude:       105.842279,
+		Longitude:      21.004127,
 	},
 }
 

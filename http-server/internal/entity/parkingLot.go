@@ -11,4 +11,6 @@ type ParkingLot struct {
 	BikeCount      int     `json:"bikeCount"`
 	CongestionRate float32 `json:"congestionRate"`
 	TotalSpace     int     `json:"totalSpace"`
+	Longitude      float64 `json:"longitude"`
+	Latitude       float64 `json:"latitude"`
 }
