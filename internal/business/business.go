@@ -59,7 +59,7 @@ func (b *business) SearchParkingLot(c context.Context, name string) (*SearchPark
 		return nil, err
 	}
 
-	return &SearchParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate}, nil
+	return &SearchParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate, prod.TotalSpace}, nil
 }
 
 func (b *business) GetAllParkingLots(c context.Context) (*GetAllParkingLotResponse, error) {
@@ -90,7 +90,7 @@ func (b *business) GetParkingLot(c context.Context, request *GetParkingLotReques
 		return nil, err
 	}
 
-	return &GetParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate}, nil
+	return &GetParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate, prod.TotalSpace}, nil
 }
 
 func (b *business) UpdateParkingLot(c context.Context, request *UpdateParkingLotRequest) (*UpdateParkingLotResponse, error) {
@@ -102,5 +102,5 @@ func (b *business) UpdateParkingLot(c context.Context, request *UpdateParkingLot
 		return nil, err
 	}
 
-	return &UpdateParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate}, nil
+	return &UpdateParkingLotResponse{prod.ID, prod.Name, prod.BikeCount, prod.CongestionRate, prod.TotalSpace}, nil
 }
