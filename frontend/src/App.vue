@@ -9,22 +9,6 @@
             <i class="fa-solid fa-square-parking"></i>
             <span class="d-none d-lg-inline">ParkPal</span>
           </h1>
-
-          <div class="list-group text-center text-lg-left">
-            <span class="list-group-item disabled d-none d-lg-block">
-              <small>CONTROLS</small>
-            </span>
-            <a href="#" class="list-group-item list-group-item-action active">
-              <i class="fas fa-home"></i>
-              <span class="d-none d-lg-inline">Dashboard</span>
-            </a>
-
-            <a href="#" class="list-group-item list-group-item-action">
-              <i class="fas fa-flag"></i>
-              <span class="d-none d-lg-inline">Reports</span>
-            </a>
-          </div>
-
         </nav>
 
         <main class="col-10 bg-secondary">
@@ -38,12 +22,6 @@
                   <input type="text" class="form-control" placeholder="Enter license plate number ">
                   <button class="btn btn-secondary">Search</button>
                 </div>
-              </li>
-
-              <li class="nav-item">
-                <a href="#" class="nav-link">
-                  <i class="fas fa-cog"></i>
-                </a>
               </li>
             </div>
           </nav>
