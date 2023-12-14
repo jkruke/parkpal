@@ -137,7 +137,7 @@ export default {
   },
   methods: {
     updateParkingLots() {
-      axios.get("http://10.90.21.32:9091/parking-lots")
+      axios.get("http://localhost:9091/parking-lots")
           .then(response => {
             this.parkingLots = response.data
           })
