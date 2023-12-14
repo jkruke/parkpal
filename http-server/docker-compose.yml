@@ -1,0 +1,7 @@
+version: '4'
+services:
+  parkpal-backend:
+    image: parkpal-http-server:latest
+    build: .
+    ports:
+      - "9091:9091"
