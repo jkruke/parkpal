@@ -1,9 +1,17 @@
 <template>
-  <div ref="mapMarker">
-    <strong>{{ parkingLot.name }}</strong>
-    <div>Occupied: {{ occupied }}%</div>
-    <div>Trend: {{ trend }}</div>
-  </div>
+  <table ref="mapMarker" class="marker">
+    <tr>
+      <td colspan="2" class="headline"><strong>{{ parkingLot.name }}</strong></td>
+    </tr>
+    <tr>
+      <td>Occupied</td>
+      <td>{{ occupied }}%</td>
+    </tr>
+    <tr>
+      <td>Trend</td>
+      <td>{{ trend }}</td>
+    </tr>
+  </table>
 </template>
 
 <script>
@@ -44,5 +52,14 @@ export default {
 </script>
 
 <style scoped>
-
+.marker {
+  font-size: 1.5em;
+  line-height: 1.25em;
+}
+.headline {
+  text-align: center;
+}
+td {
+  padding: 0.25em;
+}
 </style>
