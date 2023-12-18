@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import socket
 import time
 from argparse import ArgumentParser
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from typing import List
 
 import cv2
 import torch
+from confluent_kafka import Producer
 from paho.mqtt import client as mqtt_client
 
 import function.helper as helper
@@ -109,8 +111,13 @@ class LicensePlateDetector:
         self.vid = cv2.VideoCapture(self.video_src)
 
     def process_video(self):
+        ct = 0
+        skip_frames = 5
         while True:
-            time.sleep(0.1)
+            ct += 1
+            self.vid.grab()
+            if ct % skip_frames != 0:
+                continue
             frame = self.read_video_frame()
             detected_license_plates = self.extract_license_plates(frame)
             self.lp_handler.add_all(detected_license_plates)
@@ -213,6 +220,23 @@ class MqttNotifier(LicensePlateNotifier):
             print(f"Failed to send message to topic {self.TOPIC}")
 
 
+class KafkaNotifier(LicensePlateNotifier):
+    TOPIC = "quickstart-events"
+
+    def __init__(self, server):
+        self.server = server
+
+    def notify(self, detection: LicensePlateDetection):
+        conf = {'bootstrap.servers': self.server,
+                'client.id': socket.gethostname()}
+
+        payload = json.dumps(dataclasses.asdict(detection))
+        print(f"[Kafka] Send to {self.TOPIC}: {payload}")
+        producer = Producer(conf)
+        producer.produce(self.TOPIC, payload)
+        producer.flush()
+
+
 class ConsoleNotifier(LicensePlateNotifier):
     def notify(self, detection):
         print(f"Detected {detection.license_plate}")
@@ -224,6 +248,7 @@ def parse_arguments():
                             help="Source of video input. "
                                  "Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), "
                                  "or video file (vid.mp4)")
+    arg_parser.add_argument('-ks', '--kafka-server', help="Kafka Server")
     arg_parser.add_argument('-mb', '--mqtt-broker', help="Hostname of MQTT broker",
                             default="broker.hivemq.com")
     arg_parser.add_argument('-mp', '--mqtt-port', help="Port of MQTT broker",
@@ -239,10 +264,15 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
-    mqtt_notifier = MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id)
     console_notifier = ConsoleNotifier()
+    notifiers = [console_notifier]
+    if args.kafka_server:
+        notifiers.append(KafkaNotifier(server=args.kafka_server))
+    elif args.mqtt_broker:
+        notifiers.append(MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id))
+    print("Using notifiers:", notifiers)
     detector = LicensePlateDetector(video_src=args.video_src,
                                     record_entrance=args.record_entrance,
                                     parking_lot_id=args.parking_lot_id,
-                                    notifiers=[console_notifier, mqtt_notifier])
+                                    notifiers=notifiers)
     detector.run()

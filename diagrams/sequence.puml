@@ -7,19 +7,19 @@ box Device
 participant Computer
 end box
 box Cloud
-participant MQTTBroker
 end box
 box Device
-participant Spark
 participant Kafka
+participant Spark
+participant SQLite
 participant Webserver
 end box
 
 Camera --> Computer : video/image stream
-Computer --> MQTTBroker : information about license plate \n+ timestamp
-MQTTBroker --> Spark : MQTT message
-Spark --> Kafka : license plate event
-Kafka <-- Webserver : get information about license plate \n+ timestamp
+Computer --> Kafka : information about license plate \n+ timestamp
+Kafka --> Spark : license plate event
+Spark --> SQLite : Persist state
+SQLite <-- Webserver : get information about license plate \n+ timestamp
 actor User
 Webserver <-- User : get information
 @enduml
