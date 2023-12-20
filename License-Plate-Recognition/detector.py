@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from typing import List
 
 import cv2
+import imutils
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from confluent_kafka import Producer
 from paho.mqtt import client as mqtt_client
@@ -39,7 +42,7 @@ class LicensePlateHandler:
     def add_all(self, license_plates: list):
         for lp in license_plates:
             # ignore license plate if it doesn't meet the formal requirements:
-            if len(lp) not in [9, 10]:
+            if len(lp) not in [9, 10, 11]:
                 continue
 
             if lp not in self.known_lp:
@@ -50,9 +53,10 @@ class LicensePlateHandler:
                 notified = self.known_lp[lp]['notified']
             self.known_lp[lp] = {'lastseen': time.time(), 'dup_count': dup_count, 'notified': notified}
 
-        self.handle_known_lps()
+        return self.handle_known_lps()
 
     def handle_known_lps(self):
+        detections = []
         known_lp_updated = self.known_lp.copy()
         for lp, info in self.known_lp.items():
             if info['notified'] is False and info['dup_count'] >= self.min_req_duplicates:
@@ -60,6 +64,7 @@ class LicensePlateHandler:
                 for notifier in self.notifiers:
                     detection = LicensePlateDetection(parking_lot_id=self.parking_lot_id, license_plate=lp,
                                                       entrance=self.record_entrance)
+                    detections.append(detection)
                     notifier.notify(detection)
                 info['notified'] = True
 
@@ -70,17 +75,22 @@ class LicensePlateHandler:
                 known_lp_updated[lp] = info
 
         self.known_lp = known_lp_updated
+        return detections
 
 
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
+    FPS = 3
+    MOVEMENT_THRESHOLD = 10
+
     def __init__(self, video_src: int | str, record_entrance: bool, parking_lot_id: int,
-                 notifiers: List[LicensePlateNotifier], frames_per_second=10):
+                 notifiers: List[LicensePlateNotifier], frames_per_second=10, show_video=False):
         """
         :param video_src specify the source of video input.
         Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), or video file (vid.mp4)
         """
+        self.indicators = []
         self.video_src = video_src
         self.notifiers = notifiers
         self.frames_per_second = frames_per_second
@@ -89,6 +99,7 @@ class LicensePlateDetector:
         self.yolo_license_plate = None
         self.load_model()
         self.lp_handler = LicensePlateHandler(record_entrance, parking_lot_id, notifiers)
+        self.show_video = show_video
 
     def load_model(self):
         self.yolo_LP_detect = torch.hub.load('yolov5', 'custom', path='model/LP_detector_nano_61.pt', force_reload=True,
@@ -106,21 +117,54 @@ class LicensePlateDetector:
             print("Program terminated by KeyboardInterrupt")
         finally:
             self.vid.release()
+            cv2.destroyAllWindows()
+            x, y = zip(*self.indicators)
+            plt.plot(list(x), list(y))
+            x, y = zip(*self.detections)
+            plt.scatter(list(x), list(y), c="r")
+            plt.savefig("plot.png")
 
     def init_video(self):
         self.vid = cv2.VideoCapture(self.video_src)
 
     def process_video(self):
-        ct = 0
-        skip_frames = 5
+        latest_frame_ts = time.time()
+        timeout = 1 / self.FPS
+        latest_inspected_frame = None
+        self.indicators = []
+        self.detections = []
         while True:
-            ct += 1
-            self.vid.grab()
-            if ct % skip_frames != 0:
-                continue
             frame = self.read_video_frame()
+            if time.time() - latest_frame_ts < timeout:
+                continue
+            latest_frame_ts = time.time()
+
+            if self.show_video:
+                cv2.imshow('frame', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    return
+
+            frame = imutils.resize(frame, width=250)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame = np.dstack([frame, frame, frame])
+
+            if latest_inspected_frame is None:
+                latest_inspected_frame = frame
+
+            # calculate difference between current frame and the last inspected frame:
+            diff = cv2.absdiff(frame, latest_inspected_frame)
+            movement_indicator = np.mean(diff)
+            self.indicators.append((time.time(), movement_indicator))
+            # ignore frame if the difference is not significant enough:
+            if movement_indicator < self.MOVEMENT_THRESHOLD:
+                continue
+            latest_inspected_frame = frame
+
+            # insoect frame:
             detected_license_plates = self.extract_license_plates(frame)
-            self.lp_handler.add_all(detected_license_plates)
+            detections = self.lp_handler.add_all(detected_license_plates)
+            if len(detections) != 0:
+                self.detections.append((time.time(), 1))
 
     def extract_license_plates(self, frame):
         result = []
@@ -248,6 +292,7 @@ def parse_arguments():
                             help="Source of video input. "
                                  "Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), "
                                  "or video file (vid.mp4)")
+    arg_parser.add_argument('--show-video', help="Show video", default=False, action="store_true")
     arg_parser.add_argument('-ks', '--kafka-server', help="Kafka Server")
     arg_parser.add_argument('-mb', '--mqtt-broker', help="Hostname of MQTT broker",
                             default="broker.hivemq.com")
@@ -268,11 +313,12 @@ if __name__ == '__main__':
     notifiers = [console_notifier]
     if args.kafka_server:
         notifiers.append(KafkaNotifier(server=args.kafka_server))
-    elif args.mqtt_broker:
+    if args.mqtt_broker:
         notifiers.append(MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id))
     print("Using notifiers:", notifiers)
     detector = LicensePlateDetector(video_src=args.video_src,
                                     record_entrance=args.record_entrance,
                                     parking_lot_id=args.parking_lot_id,
-                                    notifiers=notifiers)
+                                    notifiers=notifiers,
+                                    show_video=args.show_video)
     detector.run()
