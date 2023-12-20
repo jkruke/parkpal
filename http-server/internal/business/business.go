@@ -2,6 +2,7 @@ package business
 
 import (
 	"context"
+	"errors"
 	"parkpal-web-server/internal/entity"
 	"time"
 
@@ -76,8 +77,13 @@ func (b *business) GetAllParkingLots(c context.Context) (*GetAllParkingLotRespon
 
 	// Copy values from prodsPointers to prods
 	for i, ptr := range prods {
-		response[i] = *ptr
+		if ptr != nil {
+			response[i] = *ptr
+		} else {
+			return nil, errors.New("received nil parking lot from repository")
+		}
 	}
+
 	return &response, nil
 }
 

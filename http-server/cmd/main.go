@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"parkpal-web-server/db"
 	"parkpal-web-server/internal/business"
 	"parkpal-web-server/internal/repository/storage"
 	"parkpal-web-server/internal/transport/api"
-	_ "parkpal-web-server/internal/transport/kafka"
 	"time"
 
 	gohandlers "github.com/gorilla/handlers"
@@ -33,7 +34,12 @@ func main() {
 	// create a logger for the server from the default logger
 	sl := l.StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
 
-	memStore := storage.NewTestMemStore()
+	dbConn, err := db.NewDatabase()
+	if err != nil {
+		log.Fatalf("Could not initialize database connection: %s", err)
+	}
+
+	memStore := storage.NewMemStore(dbConn.GetDB())
 
 	// business
 	business := business.NewBusiness(memStore, time.Duration(2)*time.Second, l)

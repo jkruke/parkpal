@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/go-hclog v1.5.0
+	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/nicholasjackson/env v0.6.1
 )
 
