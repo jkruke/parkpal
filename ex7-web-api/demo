@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -eu
+
+npm run start &
+WEBAPI_PID=$!
+echo "Started Web API (PID=$WEBAPI_PID)"
+sleep 2
+echo
+
+function do_request() {
+    cmd="$1"
+    echo "Execute  : $cmd"
+    out=$(eval $cmd)
+    echo "Response : $out"
+    echo
+}
+
+echo "POST new parking lot"
+payload='{"id": 2, "name": "new one"}'
+do_request "curl -s -X POST -H 'Content-Type: application/json' -d '$payload' localhost:8080/parking-lot"
+
+echo "PUT update parking lot name"
+payload='{"id": 2, "name": "changed name!"}'
+do_request "curl -s -X PUT -H 'Content-Type: application/json' -d '$payload' localhost:8080/parking-lot"
+
+echo "GET parking lot"
+do_request "curl -s localhost:8080/parking-lot?id=2"
+
+echo "DELETE parking lot"
+do_request "curl -s -X DELETE localhost:8080/parking-lot?id=2"
+
+echo "GET parking lot (verify it is deleted)"
+do_request "curl -s localhost:8080/parking-lot?id=2"
+
+kill $WEBAPI_PID
+echo "Demonstration finished!"
+echo
