@@ -30,8 +30,8 @@ class LicensePlateNotifier:
 
 
 class LicensePlateHandler:
-    def __init__(self, record_entrance: bool, parking_lot_id: int, notifiers: List[LicensePlateNotifier],
-                 min_req_duplicates=5):
+    def __init__(self, record_entrance: bool, parking_lot_id: int, notifiers: List[LicensePlateNotifier]=[],
+                 min_req_duplicates=0):
         self.parking_lot_id = parking_lot_id
         self.record_entrance = record_entrance
         self.notifiers = notifiers
@@ -80,23 +80,22 @@ class LicensePlateHandler:
 # noinspection DuplicatedCode
 class LicensePlateDetector:
 
-    FPS = 3
-    MOVEMENT_THRESHOLD = 10
+    FPS = 2
+    MOVEMENT_THRESHOLD = 0
 
     def __init__(self, video_src: int | str, record_entrance: bool, parking_lot_id: int,
-                 notifiers: List[LicensePlateNotifier], frames_per_second=10, show_video=False):
+                 notifiers: List[LicensePlateNotifier], show_video=False):
         """
         :param video_src specify the source of video input.
         Can be device number (0), RTSP video stream (rtsp://user:pwd@host.local:8081), or video file (vid.mp4)
         """
         self.video_src = video_src
         self.notifiers = notifiers
-        self.frames_per_second = frames_per_second
         self.vid = None
         self.yolo_LP_detect = None
         self.yolo_license_plate = None
         self.load_model()
-        self.lp_handler = LicensePlateHandler(record_entrance, parking_lot_id, notifiers)
+        self.lp_handler = LicensePlateHandler(record_entrance, parking_lot_id, notifiers, min_req_duplicates=self.FPS)
         self.show_video = show_video
 
     def load_model(self):
@@ -150,7 +149,7 @@ class LicensePlateDetector:
                 continue
             latest_inspected_frame = frame
 
-            # insoect frame:
+            # inspect frame:
             detected_license_plates = self.extract_license_plates(frame)
             self.lp_handler.add_all(detected_license_plates)
 
