@@ -11,7 +11,7 @@ type Database struct {
 }
 
 func NewDatabase() (*Database, error) {
-	db, err := sql.Open("sqlite3", "parking_lots.db")
+	db, err := sql.Open("sqlite3", "parkpal.db")
 	if err != nil {
 		return nil, err
 	}

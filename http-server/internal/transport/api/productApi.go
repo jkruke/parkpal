@@ -66,7 +66,7 @@ func (api *api) SearchParkingLot(rw http.ResponseWriter, r *http.Request) {
 		api.l.Error("Unable to serializing parking lot", err)
 	}
 
-	api.l.Info("Successfully get the parking lot")
+	api.l.Info("Successfully search the parking lot")
 
 }
 
@@ -98,7 +98,7 @@ func (api *api) GetAllParkingLots(rw http.ResponseWriter, r *http.Request) {
 		api.l.Error("Unable to serializing parking lot", err)
 	}
 
-	api.l.Info("Successfully get the parking lot")
+	api.l.Info("Successfully get the parking lots")
 }
 
 func (api *api) GetParkingLot(rw http.ResponseWriter, r *http.Request) {
@@ -136,4 +136,132 @@ func (api *api) GetParkingLot(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	api.l.Info("Successfully get the parking lot")
+}
+
+func (api *api) UpdateParkingLot(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Content-Type", "application/json")
+
+	id := getParkingLotID(r)
+
+	var updateRequest business.UpdateParkingLotRequest
+	err := pkg.FromJSON(&updateRequest, r.Body)
+	if err != nil {
+		api.l.Error("Error parsing JSON payload", "error", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		pkg.ToJSON(&GenericError{Message: "Invalid JSON payload"}, rw)
+		return
+	}
+
+	// Add ID to the update request
+	updateRequest.ID = id
+
+	prod, err := api.Business.UpdateParkingLot(r.Context(), &updateRequest)
+
+	switch err {
+	case nil:
+		// Handle success
+		break
+
+	case entity.ErrParkingLotNotFound:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusNotFound)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	default:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusInternalServerError)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	err = pkg.ToJSON(prod, rw)
+	if err != nil {
+		api.l.Error("Unable to serialize parking lot", "error", err)
+	}
+
+	api.l.Info("Successfully updated the parking lot")
+}
+
+func (api *api) AddParkingLot(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Content-Type", "application/json")
+
+	var addRequest business.AddParkingLotRequest
+	err := pkg.FromJSON(&addRequest, r.Body)
+	if err != nil {
+		api.l.Error("Error parsing JSON payload", "error", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		pkg.ToJSON(&GenericError{Message: "Invalid JSON payload"}, rw)
+		return
+	}
+
+	// Add ID to the update request
+
+	prod, err := api.Business.AddParkingLot(r.Context(), &addRequest)
+
+	switch err {
+	case nil:
+		// Handle success
+		break
+
+	case entity.ErrParkingLotNotFound:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusNotFound)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	default:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusInternalServerError)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	err = pkg.ToJSON(prod, rw)
+	if err != nil {
+		api.l.Error("Unable to serialize parking lot", "error", err)
+	}
+
+	api.l.Info("Successfully added the parking lot")
+}
+
+func (api *api) DeleteParkingLot(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Content-Type", "application/json")
+
+	id := getParkingLotID(r)
+
+	var delRequest business.DeleteParkingLotRequest
+
+	// Add ID to the update request
+	delRequest.ID = id
+
+	prod, err := api.Business.DeleteParkingLot(r.Context(), &delRequest)
+
+	switch err {
+	case nil:
+		// Handle success
+		break
+
+	case entity.ErrParkingLotNotFound:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusNotFound)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	default:
+		api.l.Error("Unable to fetch parking lot", "error", err)
+
+		rw.WriteHeader(http.StatusInternalServerError)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	err = pkg.ToJSON(prod, rw)
+	if err != nil {
+		api.l.Error("Unable to serialize parking lot", "error", err)
+	}
+
+	api.l.Info("Successfully deleted the parking lot")
 }

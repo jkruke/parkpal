@@ -51,10 +51,12 @@ func main() {
 	sm := mux.NewRouter()
 
 	// handlers for API
-	getR := sm.Methods(http.MethodGet).Subrouter()
-	getR.HandleFunc("/parking-lots", apiHandler.SearchParkingLot).Queries("name")
-	getR.HandleFunc("/parking-lots", apiHandler.GetAllParkingLots)
-	getR.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.GetParkingLot)
+	sm.HandleFunc("/parking-lots", apiHandler.GetAllParkingLots).Methods(http.MethodGet)
+	sm.HandleFunc("/parking-lots", apiHandler.SearchParkingLot).Methods(http.MethodGet).Queries("name", "{name}")
+	sm.HandleFunc("/parking-lots", apiHandler.AddParkingLot).Methods(http.MethodPost)
+	sm.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.GetParkingLot).Methods(http.MethodGet)
+	sm.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.UpdateParkingLot).Methods(http.MethodPatch)
+	sm.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.DeleteParkingLot).Methods(http.MethodDelete)
 
 	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"*"}))
 

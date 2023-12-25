@@ -1,14 +1,14 @@
 createdb:
-	sqlite3 parking_lots.db;
+	sqlite3 parkpal.db;
 
 migratecreate: 
-	migrate create -ext sql -dir db/migrations add_parking_lots_table
+	migrate create -ext sql -dir db/migrations add_table
 
 migrateup:
-	sqlite3 parking_lots.db < ./db/migrations/20231220092537_add_parking_lots_table.up.sql
+	sqlite3 parkpal.db < ./db/migrations/add_table.up.sql
 
 migratedown:
-	sqlite3 parking_lots.db < ./db/migrations/20231220092537_add_parking_lots_table.down.sql
+	sqlite3 parkpal.db < ./db/migrations/add_table.down.sql
 
 dbinsert:
-	sqlite3 parking_lots.db < ./db/migrations/insert.sql
+	sqlite3 parkpal.db < ./db/migrations/insert.sql
