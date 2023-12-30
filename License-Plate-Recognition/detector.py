@@ -11,7 +11,6 @@ import imutils
 import numpy as np
 import torch
 from confluent_kafka import Producer
-from paho.mqtt import client as mqtt_client
 
 import function.helper as helper
 import function.utils_rotate as utils_rotate
@@ -199,58 +198,6 @@ class LicensePlateDetector:
                 retries = 0
 
 
-class MqttNotifier(LicensePlateNotifier):
-    TOPIC = "/vn/hust/iot/lp-detector"
-
-    def __init__(self, broker, port, client_id):
-        self.client = self.create_client(broker, client_id, port)
-
-    @staticmethod
-    def create_client(broker, client_id, port):
-        """
-        Code in this method is inspired by https://www.emqx.com/en/blog/how-to-use-mqtt-in-python
-        """
-        def on_connect(this_client, userdata, flags, rc):
-            if rc == 0:
-                print("Connected to MQTT Broker!")
-            else:
-                print(f"Failed to connect, return code {rc}")
-
-        def on_disconnect(this_client, userdata, rc):
-            print(f"Disconnected with result code: {rc}")
-            reconnect_count, reconnect_delay = 0, 0.5
-            while reconnect_count < 5:
-                print(f"Reconnecting in {reconnect_delay} seconds...")
-                time.sleep(reconnect_delay)
-
-                try:
-                    this_client.reconnect()
-                    print("Reconnected successfully!")
-                    return
-                except Exception as err:
-                    print(f"{err}. Reconnect failed. Retrying...")
-
-                reconnect_delay *= 1.5
-                reconnect_delay = min(reconnect_delay, 5)
-                reconnect_count += 1
-            print(f"Reconnect failed after {reconnect_count} attempts. Exiting...")
-
-        client = mqtt_client.Client(client_id)
-        client.on_connect = on_connect
-        client.on_disconnect = on_disconnect
-        client.connect(broker, port)
-        return client
-
-    def notify(self, detection: LicensePlateDetection):
-        payload = json.dumps(dataclasses.asdict(detection))
-        result = self.client.publish(self.TOPIC, payload)
-        status = result[0]
-        if status == 0:
-            print(f"Send `{payload}` to topic `{self.TOPIC}`")
-        else:
-            print(f"Failed to send message to topic {self.TOPIC}")
-
-
 class KafkaNotifier(LicensePlateNotifier):
     TOPIC = "quickstart-events"
 
@@ -281,12 +228,6 @@ def parse_arguments():
                                  "or video file (vid.mp4)")
     arg_parser.add_argument('--show-video', help="Show video", default=False, action="store_true")
     arg_parser.add_argument('-ks', '--kafka-server', help="Kafka Server")
-    arg_parser.add_argument('-mb', '--mqtt-broker', help="Hostname of MQTT broker",
-                            default="broker.hivemq.com")
-    arg_parser.add_argument('-mp', '--mqtt-port', help="Port of MQTT broker",
-                            default=1883, type=int)
-    arg_parser.add_argument('-mi', '--mqtt-client-id', help="MQTT client-ID",
-                            default="iot-lp-detector")
     arg_parser.add_argument('-e', '--record-entrance', help="Record entrance (true) or exit (false)",
                             default=True, type=bool)
     arg_parser.add_argument('-p', '--parking-lot-id', help="ID of the corresponding parking lot",
@@ -300,8 +241,6 @@ if __name__ == '__main__':
     notifiers = [console_notifier]
     if args.kafka_server:
         notifiers.append(KafkaNotifier(server=args.kafka_server))
-    if args.mqtt_broker:
-        notifiers.append(MqttNotifier(broker=args.mqtt_broker, port=args.mqtt_port, client_id=args.mqtt_client_id))
     print("Using notifiers:", notifiers)
     detector = LicensePlateDetector(video_src=args.video_src,
                                     record_entrance=args.record_entrance,

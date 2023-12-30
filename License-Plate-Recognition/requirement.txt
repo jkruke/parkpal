@@ -11,4 +11,4 @@ pandas
 seaborn
 scipy
 
-paho-mqtt
+confluent-kafka
