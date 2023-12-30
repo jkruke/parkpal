@@ -80,7 +80,7 @@ class LicensePlateHandler:
 class LicensePlateDetector:
 
     FPS = 2
-    MOVEMENT_THRESHOLD = 0
+    FRAME_DIFF_THRESHOLD = 0
 
     def __init__(self, video_src: int | str, record_entrance: bool, parking_lot_id: int,
                  notifiers: List[LicensePlateNotifier], show_video=False):
@@ -140,13 +140,15 @@ class LicensePlateDetector:
             if latest_inspected_frame is None:
                 latest_inspected_frame = frame
 
-            # calculate difference between current frame and the last inspected frame:
-            diff = cv2.absdiff(frame, latest_inspected_frame)
-            movement_indicator = np.mean(diff)
-            # ignore frame if the difference is not significant enough:
-            if movement_indicator < self.MOVEMENT_THRESHOLD:
-                continue
-            latest_inspected_frame = frame
+            # only apply frame differencing if desired:
+            if self.FRAME_DIFF_THRESHOLD > 0:
+                # calculate difference between current frame and the last inspected frame
+                diff = cv2.absdiff(frame, latest_inspected_frame)
+                movement_indicator = np.mean(diff)
+                # ignore frame if the difference is not significant enough:
+                if movement_indicator < self.FRAME_DIFF_THRESHOLD:
+                    continue
+                latest_inspected_frame = frame
 
             # inspect frame:
             detected_license_plates = self.extract_license_plates(frame)
