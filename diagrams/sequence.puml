@@ -1,25 +1,17 @@
 @startuml
 
-box Sensor
 participant Camera
-end box
-box Device
 participant Computer
-end box
-box Cloud
-end box
-box Device
 participant Kafka
 participant Spark
 participant SQLite
 participant Webserver
-end box
 
 Camera --> Computer : video/image stream
 Computer --> Kafka : information about license plate \n+ timestamp
 Kafka --> Spark : license plate event
 Spark --> SQLite : Persist state
-SQLite <-- Webserver : get information about license plate \n+ timestamp
+SQLite <-- Webserver : get information about parking lots
 actor User
 Webserver <-- User : get information
 @enduml
