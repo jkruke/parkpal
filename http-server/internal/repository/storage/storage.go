@@ -51,7 +51,7 @@ func (ms *memStore) GetAllParkingLots(ctx context.Context) ([]*entity.ParkingLot
 func (ms *memStore) GetParkingLotByName(ctx context.Context, name string) (*entity.ParkingLot, error) {
 	parkingLot := entity.ParkingLot{}
 
-	query := "SELECT pl.id, pl.name, pl.latitude, pl.longitude, pl.total_space, pl.congestion_rate, count(pl.id) FROM parking_lots pl LEFT JOIN license_plates lp ON lp.parkinglot_id = pl.id WHERE pl.name = $1 GROUP BY 1"
+	query := "SELECT pl.id, pl.name, pl.latitude, pl.longitude, pl.totalSpace, pl.congestionRate, count(pl.id) FROM parking_lots pl LEFT JOIN license_plates lp ON lp.parkinglot_id = pl.id WHERE pl.name = $1 GROUP BY 1"
 
 	err := ms.db.QueryRowContext(ctx, query, name).Scan(
 		&parkingLot.ID,
