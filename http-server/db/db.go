@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Database struct {
@@ -11,7 +11,7 @@ type Database struct {
 }
 
 func NewDatabase() (*Database, error) {
-	db, err := sql.Open("sqlite3", "parkpal.db")
+	db, err := sql.Open("mysql", "guest:2107@tcp(192.168.0.198:3306)/iot_project")
 	if err != nil {
 		return nil, err
 	}

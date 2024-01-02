@@ -118,3 +118,16 @@ func (ms *memStore) AddParkingLot(ctx context.Context, pl entity.ParkingLot) (*e
 
 	return &parkingLot, nil
 }
+
+func (ms *memStore) GetBikeByLicensePlate(ctx context.Context, plate string) (*entity.Bike, error) {
+	bike := entity.Bike{}
+
+	query := "SELECT lp.id, lp.name, pl.id, pl.name, pl.latitude, pl.longitude, pl.totalSpace, pl.congestionRate FROM license_plates lp JOIN parking_lots pl ON pl.id = lp.parkinglot_id WHERE lp.name = $1"
+
+	err := ms.db.QueryRowContext(ctx, query, plate).Scan(&bike.ID, &bike.LicensePlate, &bike.ParkingLot.ID, &bike.ParkingLot.Name, &bike.ParkingLot.Latitude, &bike.ParkingLot.Longitude, &bike.ParkingLot.TotalSpace, &bike.ParkingLot.CongestionRate)
+	if err != nil {
+		return nil, err // Return the error to the caller
+	}
+
+	return &bike, nil
+}

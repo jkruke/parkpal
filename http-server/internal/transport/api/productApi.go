@@ -38,6 +38,38 @@ func getParkingLotID(r *http.Request) int {
 	return id
 }
 
+func (api *api) SearchBike(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Content-Type", "application/json")
+	queryParams := r.URL.Query().Get("license_plate")
+	prod, err := api.Business.SearchBike(r.Context(), &business.SearchBikeRequest{LicensePlate: queryParams})
+
+	switch err {
+	case nil:
+
+	case entity.ErrParkingLotNotFound:
+		api.l.Error("Unable to fetch bike", "error", err)
+
+		rw.WriteHeader(http.StatusNotFound)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	default:
+		api.l.Error("Unable to fetching bike", "error", err)
+
+		rw.WriteHeader(http.StatusInternalServerError)
+		pkg.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	err = pkg.ToJSON(prod, rw)
+	if err != nil {
+		// we should never be here but log the error just incase
+		api.l.Error("Unable to serializing bike", err)
+	}
+
+	api.l.Info("Successfully search the bike")
+
+}
+
 func (api *api) SearchParkingLot(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Add("Content-Type", "application/json")
 	queryParams := r.URL.Query().Get("name")

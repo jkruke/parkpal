@@ -39,6 +39,8 @@ func main() {
 		log.Fatalf("Could not initialize database connection: %s", err)
 	}
 
+	log.Println("Connect to database successfully!")
+
 	memStore := storage.NewMemStore(dbConn.GetDB())
 
 	// business
@@ -57,6 +59,8 @@ func main() {
 	sm.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.UpdateParkingLot).Methods(http.MethodPatch)
 	sm.HandleFunc("/parking-lots/{id:[0-9]+}", apiHandler.DeleteParkingLot).Methods(http.MethodDelete)
 	sm.HandleFunc("/parking-lots", apiHandler.GetAllParkingLots).Methods(http.MethodGet)
+
+	sm.HandleFunc("/bikes", apiHandler.SearchBike).Methods(http.MethodGet).Queries("license_plate", "{license_plate}")
 
 	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"*"}))
 

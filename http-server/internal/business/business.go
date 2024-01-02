@@ -46,6 +46,12 @@ type DeleteParkingLotResponse struct {
 	Latitude   float64 `json:"latitude"`
 }
 
+type SearchBikeRequest struct {
+	LicensePlate string `json:"license_plate"`
+}
+
+type SearchBikeResponse entity.Bike
+
 type Business interface {
 	GetParkingLot(ctx context.Context, request *GetParkingLotRequest) (*GetParkingLotResponse, error)
 	GetAllParkingLots(ctx context.Context) (*GetAllParkingLotResponse, error)
@@ -53,6 +59,7 @@ type Business interface {
 	UpdateParkingLot(ctx context.Context, request *UpdateParkingLotRequest) (*UpdateParkingLotResponse, error)
 	DeleteParkingLot(ctx context.Context, request *DeleteParkingLotRequest) (*DeleteParkingLotResponse, error)
 	AddParkingLot(ctx context.Context, request *AddParkingLotRequest) (*AddParkingLotResponse, error)
+	SearchBike(ctx context.Context, request *SearchBikeRequest) (*SearchBikeResponse, error)
 }
 
 type Repository interface {
@@ -62,6 +69,7 @@ type Repository interface {
 	UpdateParkingLotByID(ctx context.Context, pl entity.ParkingLot) (*entity.ParkingLot, error)
 	DeleteParkingLotByID(ctx context.Context, pl entity.ParkingLot) (*entity.ParkingLot, error)
 	AddParkingLot(ctx context.Context, pl entity.ParkingLot) (*entity.ParkingLot, error)
+	GetBikeByLicensePlate(ctx context.Context, plate string) (*entity.Bike, error)
 }
 
 type business struct {
@@ -76,6 +84,18 @@ func NewBusiness(repository Repository, timeout time.Duration, l hclog.Logger) *
 		timeout,
 		l,
 	}
+}
+
+func (b *business) SearchBike(ctx context.Context, request *SearchBikeRequest) (*SearchBikeResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, b.timeout)
+	defer cancel()
+
+	bike, err := b.repository.GetBikeByLicensePlate(ctx, request.LicensePlate)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SearchBikeResponse{bike.ID, bike.LicensePlate, bike.ParkingLot}, nil
 }
 
 func (b *business) SearchParkingLot(c context.Context, name string) (*SearchParkingLotResponse, error) {
