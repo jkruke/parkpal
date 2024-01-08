@@ -191,7 +191,6 @@ class LicensePlateDetector:
             except Exception as e:
                 print("Exception while reading video:", e)
 
-            time.sleep(0.01)
             retries += 1
             if retries > 10:
                 print("Reinitializing video capture due to too many failed read operations.")
@@ -204,17 +203,16 @@ class KafkaNotifier(LicensePlateNotifier):
     TOPIC = "quickstart-events"
 
     def __init__(self, server):
-        self.server = server
+        conf = {'bootstrap.servers': server,
+                'client.id': socket.gethostname()}
+        self.producer = Producer(conf)
 
     def notify(self, detection: LicensePlateDetection):
-        conf = {'bootstrap.servers': self.server,
-                'client.id': socket.gethostname()}
-
         payload = json.dumps(dataclasses.asdict(detection))
         print(f"[Kafka] Send to {self.TOPIC}: {payload}")
-        producer = Producer(conf)
-        producer.produce(self.TOPIC, payload)
-        producer.flush()
+        self.producer.produce(self.TOPIC, payload)
+        self.producer.flush()
+        print("Flushed Kafka message")
 
 
 class ConsoleNotifier(LicensePlateNotifier):
