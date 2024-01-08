@@ -4,14 +4,14 @@ participant Camera
 participant Computer
 participant Kafka
 participant Spark
-participant SQLite
+participant MySQL
 participant Webserver
 
 Camera --> Computer : video/image stream
 Computer --> Kafka : information about license plate \n+ timestamp
 Kafka --> Spark : license plate event
-Spark --> SQLite : Persist state
-SQLite <-- Webserver : get information about parking lots
+Spark --> MySQL : Persist state
+MySQL <-- Webserver : get information about parking lots
 actor User
 Webserver <-- User : get information
 @enduml
