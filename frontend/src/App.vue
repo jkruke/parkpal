@@ -12,8 +12,9 @@
           <div class="flex-fill"></div>
           <div class="px-2">
             <div class="input-group">
-              <input type="text" class="form-control" placeholder="Enter license plate number ">
-              <button class="btn btn-secondary">Search</button>
+              <span class="text-center py-2 pe-2" v-if="searchBikePos">Bike {{ searchBikeLP}} is at parking lot <strong>{{ searchBikePos }}</strong></span>
+              <input v-model="searchBikeLP" type="text" class="form-control" placeholder="Enter license plate number ">
+              <button @click="searchBike" class="btn btn-secondary">Search</button>
             </div>
           </div>
         </nav>
@@ -71,6 +72,7 @@
 import Map from "@/components/Map.vue";
 import axios from "axios";
 
+const BACKEND_HOST = "http://192.168.0.132:9091"
 const dummyData = [
   {
     "id": 1,
@@ -103,7 +105,9 @@ export default {
   },
   data() {
     return {
-      parkingLots: []
+      parkingLots: [],
+      searchBikeLP: "",
+      searchBikePos: ""
     }
   },
   mounted() {
@@ -122,13 +126,22 @@ export default {
   },
   methods: {
     updateParkingLots() {
-      axios.get("http://localhost:9091/parking-lots")
+      axios.get(BACKEND_HOST + "/parking-lots")
           .then(response => {
             this.parkingLots = response.data
           })
           .catch(() => {
             console.info("Using dummy data...")
             this.parkingLots = dummyData
+          })
+    },
+    searchBike() {
+      axios.get(BACKEND_HOST + "/bikes?license_plate=" + this.searchBikeLP)
+          .then(response => {
+            this.searchBikePos = response.data.parking_lot.name
+          })
+          .catch(() => {
+            this.searchBikePos = ""
           })
     }
   }
