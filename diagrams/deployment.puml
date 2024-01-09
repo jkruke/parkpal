@@ -5,20 +5,20 @@ title "Deployment of the System"
 node Camera <<Device>>
 node "Computer Vision" as CV
 node Kafka
+node Spark
+database MySQL
 node Webserver {
-    rectangle Spark
-    database SQLite
     rectangle Backend
     rectangle Frontend <<static files>>
 }
 actor User
 
-Camera . CV: RTSP
-CV .. Kafka: Kafka API
-Kafka .. Spark: Kafka API
-Spark .. SQLite: JDBC API
-Backend .. SQLite: JDBC API
+Camera .. CV: RTSP
+CV . Kafka: Kafka API
+Kafka . Spark: Kafka API
+Spark .. MySQL: JDBC API
+Backend .. MySQL: JDBC API
 Frontend . User: HTTP
-User .. Backend: HTTP
+Backend .. User: HTTP
 
 @enduml
