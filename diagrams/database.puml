@@ -1,0 +1,18 @@
+INSERT INTO parking_lot (name, congestionRate, totalSpace, latitude, longitude)
+@startuml
+entity parking_lots {
+    id
+    name
+    latitude
+    longitude
+    congestionRate
+    totalSpace
+}
+entity license_plates {
+    id
+    name
+    parking_lot_id
+}
+
+license_plates ||- parking_lots
+@enduml
