@@ -235,7 +235,7 @@ def parse_arguments():
     return arg_parser.parse_args()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  
     args = parse_arguments()
     console_notifier = ConsoleNotifier()
     notifiers = [console_notifier]
