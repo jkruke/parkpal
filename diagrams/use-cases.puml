@@ -2,9 +2,9 @@
 
 (check the fulfillment of the parking lot) as (fulfillment)
 
-User --> (get a recommendation where to park)
-User ---> (fulfillment)
-User --> (check the current load of the gate)
+User --> (check the parking lot of his motorbike)
+User --> (fulfillment)
+User -> (check the current load of the gate)
 
 note right of (fulfillment)
 based on the frequency of bikes
